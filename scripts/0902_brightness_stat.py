@@ -158,7 +158,10 @@ def show_comet_stats():
     axs[1][0].hist(mean_color, bins=20)
     axs[1][1].hist(median_color, bins=20)
     
+    axs[0][0].set_title('min color')
+    axs[0][1].set_title('max color')
     axs[1][0].set_title('mean color')
+    axs[1][1].set_title('median color')
     
     plt.show()
     
@@ -169,16 +172,22 @@ def show_false_comet_stats():
     
     fig, axs = plt.subplots(1, len(columns), sharey=True, tight_layout=True)
 
-    for i, c in enumerate(columns):
-        axs[i].hist(df[c].values, bins=20) 
-        axs[i].set_title(c)
+    # We can set the number of bins with the *bins* keyword argument.
+    axs[0][0].hist(min_color, bins=20)
+    axs[0][1].hist(max_color, bins=20)
+    axs[1][0].hist(mean_color, bins=20)
+    axs[1][1].hist(median_color, bins=20)
     
+    axs[0][0].set_title('min color')
+    axs[0][1].set_title('max color')
+    axs[1][0].set_title('mean color')
+    axs[1][1].set_title('median color')
     plt.show()
             
 if __name__ == '__main__':
-    save_comet_stats()
-    #show_comet_stats()
+    #save_comet_stats()
+    show_comet_stats()
     
     #save_false_comet_stats()
-    #show_false_comet_stats()
+    show_false_comet_stats()
 
