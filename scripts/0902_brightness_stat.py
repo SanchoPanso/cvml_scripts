@@ -165,20 +165,13 @@ def show_comet_stats():
 
 def show_false_comet_stats():
     df = pd.read_csv('cvs1_false_comet_stats.csv')
-    min_color = df['min_color'].values
-    max_color = df['max_color'].values
-    mean_color = df['mean_color'].values
-    median_color = df['median_color'].values
+    columns = df.columns
     
-    fig, axs = plt.subplots(2, 2, sharey=True, tight_layout=True)
+    fig, axs = plt.subplots(1, len(columns), sharey=True, tight_layout=True)
 
-    # We can set the number of bins with the *bins* keyword argument.
-    axs[0][0].hist(min_color, bins=20)
-    axs[0][1].hist(max_color, bins=20)
-    axs[1][0].hist(mean_color, bins=20)
-    axs[1][1].hist(median_color, bins=20)
-    
-    axs[1][0].set_title('mean color')
+    for i, c in enumerate(columns):
+        axs[i].hist(df[c].values, bins=20) 
+        axs[i].set_title(c)
     
     plt.show()
             

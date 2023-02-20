@@ -11,18 +11,11 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent))
 
+import cvml
 from cvml.annotation.bounding_box import BoundingBox, CoordinatesType, BBType, BBFormat
 from cvml.dataset.detection_dataset import DetectionDataset
 from cvml.dataset.image_source import ImageSource
-from cvml.detection.dataset.annotation import Annotation
-from cvml.detection.dataset.annotation_converter import AnnotationConverter
-from cvml.detection.dataset.annotation_editor import AnnotationEditor
 
-from cvml.dataset.image_source import convert_paths_to_single_sources
-from cvml.detection.augmentation.sp_estimator import SPEstimator
-from cvml.dataset.image_transforming import convert_to_mixed, expo
-
-from cvml.detection.augmentation.golf_augmentation import MaskMixup, MaskMixupAugmentation
 
 
 def bb_intersection_over_union(boxA, boxB):
@@ -48,8 +41,8 @@ def main():
     raw_dirs |= set(glob.glob(os.path.join(raw_datasets_dir, '*comet*')))
     raw_dirs |= set(glob.glob(os.path.join(raw_datasets_dir, '23_06_2021_номера_оправок_командир')))
 
-    raw_dirs -= set(glob.glob(os.path.join(raw_datasets_dir, 'cvs1_comet_december3')))
-    raw_dirs -= set(glob.glob(os.path.join(raw_datasets_dir, 'cvs1_number_january_Marina1')))
+    #raw_dirs = list(raw_dirs)
+    #raw_dirs.sort()
     
 
     for dataset_dir in raw_dirs:
@@ -63,7 +56,7 @@ def main():
         annotation_path = os.path.join(dataset_dir, 'annotations', 'instances_default.json')
         new_annotation_path = os.path.join(dataset_dir, 'annotations', 'instances_with_highlights.json')
 
-        annotation = AnnotationConverter.read_coco(annotation_path)
+        annotation = cvml.read_coco(annotation_path)
         annotation.classes.append('highlight')
         highlight_id = len(annotation.classes) - 1
         
@@ -81,16 +74,24 @@ def main():
             if name not in annotation.bbox_map:
                 continue
 
-            # for orig_bbox in annotation.bbox_map[name]:
-            #     if annotation.classes[orig_bbox.get_class_id()] not in ['comet', 'number']:
-            #         continue
-            #     x, y, w, h = map(int, orig_bbox.get_coordinates())
-                #cv2.rectangle(img, (x, y), (x + w, y + h), (0, 0, 255), 6)
+            for orig_bbox in annotation.bbox_map[name]:
+                if annotation.classes[orig_bbox.get_class_id()] not in ['comet', 'number']:
+                    continue
+                x, y, w, h = map(int, orig_bbox.get_coordinates())
+                # cv2.rectangle(img, (x, y), (x + w, y + h), (0, 0, 255), 6)
             
             for cnt in contours:
+                
+                # Filter small contours
                 if cv2.contourArea(cnt) < 70:
                     continue
+
                 x, y, w, h = cv2.boundingRect(cnt)
+
+                # Filter small bboxes
+                if w < 60 or h < 60:
+                    continue
+
                 bbox = BoundingBox(highlight_id, x, y, w, h, 1.0, name, img_size=img.shape[1:])
                 
                 iou_max = 0
@@ -104,20 +105,50 @@ def main():
                                       bbox.get_coordinates(format=BBFormat.XYX2Y2))
                     )
                 
+                # Filter intersected highlights
                 if iou_max > 0.1:
                     continue
 
                 annotation.bbox_map[name].append(bbox)
-                #cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 6)
                 counter += 1
+            
+            # Filter intersected highlights (with other highlights)
+            # bboxes = annotation.bbox_map[name]
+            # new_bboxes = []
+            # for i in range(len(bboxes)):
+            #     if bboxes[i]._class_id != highlight_id:
+            #         continue
+                
+            #     for j in range(len(bboxes)):
+            #         if bboxes[j]._class_id != highlight_id:
+            #             continue
 
-            # print(counter)
+            #         x1_i, y1_i, x2_i, y2_i = bboxes[i].get_coordinates(format=BBFormat.XYX2Y2)
+            #         x1_j, y1_j, x2_j, y2_j = bboxes[j].get_coordinates(format=BBFormat.XYX2Y2)
+
+            #         w_i, h_i = (x2_i - x1_i), (y2_i - y1_i)
+            #         w_j, h_j = (x2_j - x1_j), (y2_j - y1_j)
+
+            #         if x1_j <= (x1_i + x2_i) / 2 <= x2_j and y1_j <= (y1_i + y2_i) / 2 <= y2_j and w_i*h_i < w_j*h_j:
+            #             continue
+
+            #         new_bboxes.append(bboxes[i])
+            # annotation.bbox_map[name] = new_bboxes
+
+
+
+
+            # for bbox in annotation.bbox_map[name]:
+            #     if bbox.get_class_id() == highlight_id:
+            #         x, y, w, h = map(int, bbox.get_coordinates())
+            #         cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 6)
+
             
             # cv2.imshow('img', cv2.resize(img, (400, 400)))
             # cv2.imshow('mask', cv2.resize(mask, (400, 400)))
             # cv2.waitKey()
 
-        AnnotationConverter.write_coco(annotation, new_annotation_path, '.png')
+        cvml.write_coco(annotation, new_annotation_path, '.png')
 
 
 

@@ -9,18 +9,10 @@ from typing import Callable, List
 import argparse
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).parent.parent))
-
-from cvml.annotation.bounding_box import BoundingBox
-from cvml import DetectionDataset
-from cvml import ImageSource
-from cvml import Annotation
-from cvml import write_coco, write_yolo, read_coco
-from cvml import change_classes_by_id, change_classes_by_names, change_classes_by_new_classes
-
+import cvml
 from cvml.dataset.image_source import convert_paths_to_single_sources
-from cvml.augmentation.sp_estimator import SPEstimator
-from cvml.dataset.image_transforming import convert_to_mixed, expo
+from cvml.dataset.image_transforming import convert_to_mixed
+
 
 
 def main():
@@ -33,17 +25,15 @@ def main():
     raw_dirs |= set(glob.glob(os.path.join(raw_datasets_dir, '*comet*')))
     raw_dirs |= set(glob.glob(os.path.join(raw_datasets_dir, '23_06_2021_номера_оправок_командир')))
 
-    raw_dirs |= set(glob.glob(os.path.join(raw_datasets_dir, 'TMK_false_defects_february')))
-    
     raw_dirs = list(raw_dirs)
     raw_dirs.sort()
     
-    save_dir = '/home/student2/datasets/prepared/cvs1_yolo_640px_14022023'
+    save_dir = '/home/student2/datasets/prepared/tmk_cvs1_yolo_640px_17022023'
 
     create_compressed_samples = True
 
-    cls_names = ['comet', 'joint', 'number']
-    sample_proportions = {'train': 0.8, 'valid': 0.2}
+    cls_names = ['comet', 'joint', 'number', 'tube', 'highlight']
+    split_proportions = {'train': 0.8, 'valid': 0.2}
 
     cvml_logger = logging.getLogger('cvml')
 
@@ -59,7 +49,7 @@ def main():
     cvml_logger.addHandler(s_handler)
 
     
-    final_dataset = DetectionDataset()
+    final_dataset = cvml.DetectionDataset()
     
     for dataset_dir in raw_dirs:
         
@@ -73,17 +63,19 @@ def main():
         image_sources = convert_paths_to_single_sources(paths=image_files,
                                                         preprocess_fn=preprocess_fn)
 
-        annotation_path = os.path.join(dataset_dir, 'annotations', 'instances_default.json')
+        annotation_path = os.path.join(dataset_dir, 'annotations', 'instances_with_highlights.json')
         renamer = lambda x: os.path.split(dataset_dir)[-1] + '_' + x
 
-        annotation_data = read_coco(annotation_path)
-        annotation_data = change_classes_by_new_classes(annotation_data, cls_names)
+        annotation_data = cvml.read_coco(annotation_path)
+        classes = cls_names
+        annotation_data = cvml.change_classes_by_new_classes(annotation_data, classes)
 
-        dataset = DetectionDataset(image_sources, annotation_data)
+        dataset = cvml.DetectionDataset(image_sources, annotation_data)
         dataset.rename(renamer)
 
         final_dataset += dataset
 
+    sample_proportions = split_proportions
     final_dataset.split_by_proportions(sample_proportions)
     final_dataset.install(
         save_dir, 
@@ -106,20 +98,6 @@ def main():
             os.system("echo Zip is not Implemented")    # TODO
         else:
             pass
-
-
-
-def bboxes_to_labels(bboxes: List[BoundingBox], img_size: tuple) -> np.ndarray:
-    labels_list = []
-    for bbox in bboxes:
-        xc, yc, w, h = bbox.get_relative_bounding_box(img_size)
-        cls_id = bbox.get_class_id()
-        labels_list.append([cls_id, xc, yc, w, h])
-    
-    if len(labels_list) == 0:
-        return np.zeros((0, 5))
-    return np.array(labels_list)
-
 
 
 if __name__ == '__main__':
