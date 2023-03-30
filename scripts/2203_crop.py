@@ -12,12 +12,12 @@ from cvml.dataset.image_transforming import SPEstimatorNumpy
 
 def main():
     # Yolo dataset dir for extracting splits
-    yolo_dataset_path = '/home/student2/datasets/prepared/tmk_cvs3_yolo_640px_18032023'
+    yolo_dataset_path = r'D:\datasets\tmk\prepared\tmk_cvs1_yolo_640px_05032023'
     
     # Dir with tmk datasets for extracting bbox, mask
-    tmk_dirs_path = '/home/student2/datasets/raw/CVS3'
+    tmk_dirs_path = r'D:\datasets\tmk\raw'
 
-    save_dir = '/home/student2/datasets/crops/2203_cvs3_defects_crops'
+    save_dir = r'D:\datasets\tmk\crops\2203_cvs3_defects_crops'
     class_names = [
         'comet', 
         'other', 
@@ -31,7 +31,7 @@ def main():
         'deformation defect', 
         'continuity violation'
     ]
-    defect_ids = [5, 6]                            # ids for cropping
+    defect_ids = [0]                            # ids for cropping
     crop_counter = {id: 1 for id in defect_ids} # counter for naming
 
     # list of path to tmk dirs
@@ -131,7 +131,7 @@ def crop_defects(tmk_dir_path: str,
             continue
 
         # Checking img name in train set
-        dataset_file_path = os.path.join(yolo_dataset_path, 'train', 'images', f'{tmk_dir}_{img_name}.png')
+        dataset_file_path = os.path.join(yolo_dataset_path, 'valid', 'images', f'{tmk_dir}_{img_name}.png')
         if not os.path.exists(dataset_file_path):
             print(img_name, 'not in train')
             continue
@@ -167,7 +167,7 @@ def crop_defects(tmk_dir_path: str,
             # Save crop in save_dir
             cls_name = annotation_data.classes[class_id]
             os.makedirs(os.path.join(save_dir, cls_name), exist_ok=True)
-            cv2.imwrite(os.path.join(save_dir, cls_name, f'{crop_counter}.png'), masked_img)
+            np.save(os.path.join(save_dir, cls_name, f'{crop_counter}.npy'), masked_img)
             print(crop_counter)
     
     return crop_counters
@@ -221,26 +221,18 @@ def get_gradient_img(bbox: BoundingBox, final_img: np.ndarray, mask: np.ndarray)
 
     final_img_crop = final_img[y1:y2, x1:x2]
     mask_crop = mask[y1:y2, x1:x2]
+    
+    final_img_crop = resize_saving_ratio(final_img_crop, (256, 256))
+    mask_crop = resize_saving_ratio(mask_crop, (256, 256))
 
     # final_img_crop = cv2.resize(final_img_crop, (128, 128))
     # mask_crop = cv2.resize(mask_crop, (128, 128))
     mask_crop = mask_crop.astype('int16')
-
-    cv2.imshow('final_img_crop', final_img_crop)
-
-    blur_img_crop = cv2.GaussianBlur(final_img_crop, (21, 21), 3)
-    cv2.imshow('blur_img_crop', blur_img_crop)
+    blur_img_crop = cv2.GaussianBlur(final_img_crop, (45, 45), 3)
     blur_img_crop = blur_img_crop.astype('int16')
     final_img_crop = final_img_crop.astype('int16') - blur_img_crop
     masked_img = final_img_crop * cv2.merge([mask_crop] * 3)
-    masked_img[:, :, 0] = 0
-    
-    cv2.imshow('int', np.abs(masked_img).astype('uint8'))
-    bg = np.ones(masked_img.shape, dtype='int16') * 64
-    bg[:, :, 1] = 0
-    cv2.imshow('exp', np.clip((bg + masked_img), 0, 255).astype('uint8'))
-    cv2.waitKey(0)
-
+    masked_img = np.concatenate([masked_img, mask_crop.reshape(mask_crop.shape[0], mask_crop.shape[1], 1)], axis=2)
 
     return masked_img
 
@@ -251,6 +243,25 @@ def normalize_min_max(data):
     norm_data = (data-data_min)/(data_max-data_min)
     return norm_data
 
+
+def resize_saving_ratio(img: np.ndarray, size: tuple):
+    width_coef = size[0] / img.shape[1]
+    height_coef = size[1] / img.shape[0]
+    
+    if height_coef < width_coef:
+        resized_img = cv2.resize(img, (int(img.shape[1] * height_coef), size[1]))
+    else:
+        resized_img = cv2.resize(img, ( size[0], int(img.shape[0] * width_coef)))
+    
+    res_shape = (size[1], size[0], img.shape[2]) if len(img.shape) == 3 else (size[1], size[0])
+    res = np.zeros(res_shape, dtype=img.dtype)
+    x1 = (res.shape[1] - resized_img.shape[1]) // 2
+    x2 = (res.shape[1] + resized_img.shape[1]) // 2
+    y1 = (res.shape[0] - resized_img.shape[0]) // 2
+    y2 = (res.shape[0] + resized_img.shape[0]) // 2
+    
+    res[y1:y2, x1:x2] = resized_img
+    return res
 
 
 if __name__ == '__main__':
