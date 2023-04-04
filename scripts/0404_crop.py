@@ -11,13 +11,10 @@ from cvml.dataset.image_transforming import SPEstimatorNumpy
 
 
 def main():
-    # Yolo dataset dir for extracting splits
-    yolo_dataset_path = r'D:\datasets\tmk\prepared\tmk_cvs1_yolo_640px_05032023'
-    
     # Dir with tmk datasets for extracting bbox, mask
-    tmk_dirs_path = r'D:\datasets\tmk\raw'
+    tmk_dirs_path = '/home/student2/datasets/raw/CVS1'
 
-    save_dir = r'D:\datasets\tmk\crops\2203_cvs3_defects_crops'
+    save_dir = '/home/student2/datasets/crops/0404_defect_crops'
     class_names = [
         'comet', 
         'other', 
@@ -35,19 +32,16 @@ def main():
     crop_counter = {id: 1 for id in defect_ids} # counter for naming
 
     # list of path to tmk dirs
-    tmk_dirs = os.listdir(tmk_dirs_path)
+    tmk_dirs = set()
+    tmk_dirs |= set(glob.glob(os.path.join(tmk_dirs_path, '*comet*')))
 
     for tmk_dir in tmk_dirs:
         tmk_dir_path = os.path.join(tmk_dirs_path, tmk_dir)
 
-        # try:
         crop_counter = crop_defects(tmk_dir_path,
-                                    yolo_dataset_path,
                                     defect_ids,
                                     crop_counter,
                                     save_dir)
-        # except Exception as ex:
-        #     print(tmk_dir, ex)
 
 
 def quadratic_lightening(img: np.ndarray, coef: float = 2.35):
@@ -98,7 +92,6 @@ def convert_to_mixed(orig_img: np.ndarray, estimator: SPEstimatorNumpy = None) -
 
 
 def crop_defects(tmk_dir_path: str,
-                 yolo_dataset_path: str,
                  defect_ids: list,
                  crop_counters: dict,
                  save_dir: str) -> dict:
@@ -129,14 +122,6 @@ def crop_defects(tmk_dir_path: str,
         if not os.path.exists(color_mask_path):
             print(img_name, 'color mask is absent')
             continue
-
-        # Checking img name in train set
-        dataset_file_path = os.path.join(yolo_dataset_path, 'valid', 'images', f'{tmk_dir}_{img_name}.png')
-        if not os.path.exists(dataset_file_path):
-            print(img_name, 'not in train')
-            continue
-
-        print(img_name)
 
         # get preprocessed image
         img = cv2.imread(img_path)
@@ -235,6 +220,14 @@ def get_gradient_img(bbox: BoundingBox, final_img: np.ndarray, mask: np.ndarray)
 
     masked_img = final_img_crop * cv2.merge([mask_crop] * 3)
     masked_img = np.concatenate([masked_img, mask_crop.reshape(mask_crop.shape[0], mask_crop.shape[1], 1)], axis=2)
+
+    # vis_masked_img  = masked_img[:, :, 0:3] / 2 + 128
+    # vis_masked_img = vis_masked_img.astype('uint8')
+    # cv2.imshow('vis_masked_img', vis_masked_img)
+    # cv2.waitKey()
+
+    if masked_img.max() > 255 or masked_img.min() < -256:
+        print('aaa')
 
     return masked_img
 
