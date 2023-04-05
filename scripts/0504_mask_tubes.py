@@ -4,8 +4,8 @@ import numpy as np
 from ultralytics import YOLO
 
 
-src_dir = ''
-dst_dir = ''
+src_dir = r'C:\Users\HP\Desktop\src'
+dst_dir = r'C:\Users\HP\Desktop\dst'
 weights = 'yolov8n-seg.pt'
 
 img_files = os.listdir(src_dir)
@@ -13,7 +13,7 @@ model = YOLO(weights)
 os.makedirs(dst_dir, exist_ok=True)
 
 for file in img_files:
-    img = cv2.imread(os.path.join(src_dir, file))
+    img = cv2.imdecode(np.fromfile(os.path.join(src_dir, file), 'uint8'), cv2.IMREAD_COLOR)
     results = model(img, stream=True)
     
     img_mask = np.zeros(img.shape[:2], dtype='uint8')
@@ -21,12 +21,16 @@ for file in img_files:
     for result in results:
         masks = result.masks  # Masks object for segmentation masks outputs
     
+    if masks is None:
+        continue
+    
     data = masks.data
     data = data.cpu().numpy()
     data *= 255
     data = data.astype('uint8')
     
     for obj_data in data:
+        obj_data = cv2.resize(obj_data, img_mask.shape[1::-1])
         img_mask += obj_data
     
     cv2.imshow('img_mask', img_mask)
