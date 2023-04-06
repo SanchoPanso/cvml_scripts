@@ -3,18 +3,23 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
+# '/mnt/data/tmk_datasets'
+src_dir = '/home/student2/datasets/prepared/tmk_cvs1_yolo_640px_14032023/train/images'
+dst_dir = '/home/student2/datasets/other/tmk_cvs1_yolo_640px_14032023_tubes/train/images'
+dst_np_dir = '/home/student2/datasets/other/tmk_cvs1_yolo_640px_14032023_tubes/train/nps'
 
-src_dir = r'C:\Users\HP\Desktop\src'
-dst_dir = r'C:\Users\HP\Desktop\dst'
 weights = '/home/student2/Downloads/train4/weights/best.pt'
 
 img_files = os.listdir(src_dir)
 model = YOLO(weights)
 os.makedirs(dst_dir, exist_ok=True)
+os.makedirs(dst_np_dir, exist_ok=True)
 
 for file in img_files:
     img = cv2.imdecode(np.fromfile(os.path.join(src_dir, file), 'uint8'), cv2.IMREAD_COLOR)
-    results = model(img, stream=True)
+    gray = img[:, :, 2]
+    gray = cv2.merge([gray] * 3)
+    results = model(gray, stream=True)
     
     img_mask = np.zeros(img.shape[:2], dtype='uint8')
     
@@ -33,12 +38,13 @@ for file in img_files:
         obj_data = cv2.resize(obj_data, img_mask.shape[1::-1])
         img_mask += obj_data
     
-    cv2.imshow('img_mask', img_mask)
-    cv2.waitKey()
+    # cv2.imshow('img_mask', img_mask)
+    # cv2.waitKey()
     
     res_img = np.zeros((img.shape[0], img.shape[1], 4), dtype='uint8')
     res_img[:, :, 0:3] = img
     res_img[:, :, 3] = img_mask
     
-    cv2.imwrite(os.path.join(dst_dir, file), res_img)
+    #cv2.imwrite(os.path.join(dst_dir, file), res_img)
+    np.save(os.path.join(dst_np_dir, os.path.splitext(file)[0] + '.npy'), res_img)
     print(file)
