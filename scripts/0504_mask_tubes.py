@@ -6,7 +6,7 @@ from ultralytics import YOLO
 
 src_dir = ''
 dst_dir = ''
-weights = 'yolov8n-seg.pt'
+weights = '/home/student2/Downloads/train4/weights/best.pt'
 
 img_files = os.listdir(src_dir)
 model = YOLO(weights)
