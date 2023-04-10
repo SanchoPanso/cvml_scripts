@@ -361,9 +361,8 @@ def draw_bboxes(img, xcycwhn_bboxes):
         y = yc - h // 2
         cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 4)
 
-if __name__ == '__main__':
 
-
+def test_cvs1():
     tube_images_dir = '/mnt/data/tmk_datasets/other/tmk_cvs1_yolo_640px_14032023_tubes/train/nps'
     tube_labels_dir = '/mnt/data/tmk_datasets/other/tmk_cvs1_yolo_640px_14032023_tubes/train/labels'
     crop_images_dir = '/mnt/data/tmk_datasets/crops/0404_defect_crops' 
@@ -381,4 +380,27 @@ if __name__ == '__main__':
         if cv2.waitKey() == 27:
             break
         
+def test_cvs3():
+    tube_images_dir = '/mnt/data/tmk_datasets/other/tmk_cvs3_yolo_640px_18032023_tubes/train/nps'
+    tube_labels_dir = '/mnt/data/tmk_datasets/other/tmk_cvs3_yolo_640px_18032023_tubes/train/labels'
+    crop_images_dir = '/mnt/data/tmk_datasets/crops/1004_defect_crops' 
+    
+    crop_class_names = ['sink', 'riska'] 
+    class_names = ['other', 'tube', 'sink', 'riska', 'pseudo']
 
+    gen = TubeGenerator(tube_images_dir, tube_labels_dir, crop_images_dir, crop_class_names, class_names)
+
+    while True:
+        img, labels = gen()
+        cv2.imshow('img', img)
+        draw_bboxes(img, labels)
+        print(labels)
+        cv2.imshow('img_labels', img)
+        if cv2.waitKey() == 27:
+            break
+        
+
+if __name__ == '__main__':
+    test_cvs3()
+
+    
