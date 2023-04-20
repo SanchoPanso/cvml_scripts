@@ -12,12 +12,14 @@ from typing import List, Tuple
 class TubeGenerator:
     def __init__(self, 
                  tube_images_dir: str,
+                 tube_masks_dir: str,
                  tube_labels_dir: str,
                  crop_images_dir: str, 
                  crop_class_names: List[str], 
                  class_names: List[str]):
         
         self.tube_images_dir = tube_images_dir
+        self.tube_masks_dir = tube_masks_dir
         self.tube_labels_dir = tube_labels_dir
 
         self.crop_images_dir = crop_images_dir
@@ -46,8 +48,8 @@ class TubeGenerator:
     
     def __call__(self, p=1.0, num_paste=5, **kwargs):
         
-        tube_img, labels = self.select_tube_image_and_labels()
-        tube_h = self.get_tube_homography(tube_img)
+        tube_img, tube_mask, labels = self.select_tube_data()
+        tube_h = self.get_tube_homography(tube_mask)
         height, width = tube_img.shape[:2]
         
         if random.random() > p:
@@ -77,15 +79,27 @@ class TubeGenerator:
 
         return tube_img, labels
     
-    def select_tube_image_and_labels(self) -> Tuple[np.ndarray, List[List[float]]]:
+    def select_tube_data(self) -> Tuple[np.ndarray, np.ndarray, List[List[float]]]:
         img_path = random.choice(self.tube_img_paths)
-        name, ext = os.path.splitext(os.path.split(img_path)[-1])
+        filename = os.path.split(img_path)[-1]
+        name, ext = os.path.splitext(filename)
+
+        mask_path = os.path.join(self.tube_masks_dir, name + ext)
         lbl_path = os.path.join(self.tube_labels_dir, name + '.txt')
         
-        img = np.load(img_path)
-        labels = self.read_yolo_labels(lbl_path)
+        img = cv2.imdecode(np.fromfile(img_path, dtype='uint8'), cv2.IMREAD_COLOR)
 
-        return img, labels
+        if os.path.exists(mask_path):
+            mask = cv2.imdecode(np.fromfile(mask_path, dtype='uint8'), cv2.IMREAD_GRAYSCALE)
+        else:
+            mask = np.ones(img.shape[:2], dtype='uint8') * 255
+        
+        if os.path.exists(lbl_path):
+            labels = self.read_yolo_labels(lbl_path)
+        else:
+            labels = []
+
+        return img, mask, labels
         
     
     def select_class_name(self) -> str:
@@ -98,10 +112,9 @@ class TubeGenerator:
         img = np.load(img_path)
         return img
     
-    def get_tube_homography(self, img: np.ndarray) -> np.ndarray:
-        alpha = img[:, :, 3] 
-        ret, binary = cv2.threshold(alpha, 1, 255, cv2.THRESH_BINARY)
-        contours, hierarchy = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    def get_tube_homography(self, mask: np.ndarray) -> np.ndarray:
+        
+        contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         
         if len(contours) == 0:
             return np.eye(4)
@@ -119,9 +132,9 @@ class TubeGenerator:
         
         img_borders = np.array(
             [[0, 0],
-            [0, img.shape[1]],
-            [img.shape[0], img.shape[1]],
-            [img.shape[0], 0]],
+            [0, mask.shape[1]],
+            [mask.shape[0], mask.shape[1]],
+            [mask.shape[0], 0]],
             dtype=np.int64        
         )
         warp_mat = cv2.getPerspectiveTransform(img_borders.astype(np.float32), box.astype(np.float32))
@@ -147,16 +160,17 @@ class TubeGenerator:
             warp_mat = self.get_random_perspective_transform(obj_img.shape)
 
             # place img_obj on black background with size of original img
-            crop_on_black = np.zeros(obj_img.shape, dtype=crop_img.dtype)
+            crop_on_black = np.zeros((*obj_img.shape[1::-1], 4), dtype=crop_img.dtype)
             crop_on_black[y_tl:y_br, x_tl:x_br] = crop_img
 
             # warp img obj and find mask of new obj position
             new_crop_img = cv2.warpPerspective(crop_on_black, obj_warp_mat @ warp_mat, (width, height))
+            new_crop_bgr = new_crop_img[:, :, 0:3]
             mask = new_crop_img[:, :, 3].astype('uint8')
-            mask_inv = cv2.bitwise_not(mask)
+            # mask_inv = cv2.bitwise_not(mask)
             
             # find contour and its bbox of new obj position
-            obj_contours, _ = cv2.findContours(mask.astype('uint8'), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            obj_contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             if len(obj_contours) == 0:
                 continue
@@ -186,13 +200,11 @@ class TubeGenerator:
         if new_bbox is None:
             return obj_img, None
         
-        tube_mask = obj_img
         final_img = obj_img.astype('float32')
-        new_crop_img = new_crop_img.astype('float32') * 2
-        new_crop_img[:, :, 3] = 0
+        new_crop_bgr = new_crop_bgr.astype('float32') * 2
         #bgr_new_crop_img = cv2.normalize(bgr_new_crop_img, bgr_new_crop_img, 100, -100, cv2.NORM_MINMAX)
         
-        final_img = final_img + new_crop_img
+        final_img = final_img + new_crop_bgr
         final_img = np.clip(final_img, 0, 255)
         final_img = final_img.astype('uint8')
         
@@ -381,14 +393,16 @@ def test_cvs1():
             break
         
 def test_cvs3():
-    tube_images_dir = '/mnt/data/tmk_datasets/other/tmk_cvs3_yolo_640px_18032023_tubes/train/nps'
-    tube_labels_dir = '/mnt/data/tmk_datasets/other/tmk_cvs3_yolo_640px_18032023_tubes/train/labels'
+    tube_images_dir = '/mnt/data/tmk_datasets/prepared/tmk_cvs3_yolo_640px_18032023/train/images'
+    tube_masks_dir =  '/mnt/data/tmk_datasets/prepared/tmk_cvs3_yolo_640px_18032023/train/masks'
+    tube_labels_dir = '/mnt/data/tmk_datasets/prepared/tmk_cvs3_yolo_640px_18032023/train/labels'
     crop_images_dir = '/mnt/data/tmk_datasets/crops/1004_defect_crops' 
     
     crop_class_names = ['sink', 'riska'] 
     class_names = ['other', 'tube', 'sink', 'riska', 'pseudo']
 
-    gen = TubeGenerator(tube_images_dir, tube_labels_dir, crop_images_dir, crop_class_names, class_names)
+    gen = TubeGenerator(tube_images_dir, tube_masks_dir, tube_labels_dir, 
+                        crop_images_dir, crop_class_names, class_names)
 
     while True:
         img, labels = gen()
