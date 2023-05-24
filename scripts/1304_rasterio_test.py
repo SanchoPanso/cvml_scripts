@@ -2,7 +2,7 @@ import rasterio
 import numpy as np
 import cv2
 
-path = r'C:\Users\HP\Downloads\True_1255.tif'
+path = r'C:\Users\HP\Downloads\3863.tif'
 dataset = rasterio.open(path)
 
 print(dataset.name)
@@ -13,11 +13,17 @@ print('bounds:', dataset.bounds)
 print('coordinate reference system:', dataset.crs)
 
 
-for i in dataset.indexes:
+bands = []
+for i in [3, 2, 1]: # dataset.indexes:
+    print(i)
     band = dataset.read(i)
-    cv2.imshow(str(i), cv2.resize(band, (300, 300)))
+    bands.append(band)
+    # cv2.imshow(str(i), cv2.resize(band, (300, 300)))
 
-ch4 =  dataset.read(4)
+img = cv2.merge(bands)
+cv2.imshow('img', cv2.resize(img, (300, 300)))
 cv2.waitKey()
+
+cv2.imwrite(r'C:\Users\HP\Downloads\3863.jpg', img)
 
 
