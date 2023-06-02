@@ -8,23 +8,21 @@ dst = img[0:4000, 0:1600, :]
 map_x = np.zeros(dst.shape[:2], dtype='float32')
 map_y = np.zeros(dst.shape[:2], dtype='float32')
 
-fx = 1700
-fy = 6000
+fx = 1024
+fy = 1024
 
 width = dst.shape[1]
 height = dst.shape[0]
 
-cx = 800
-cy = 2000
+cx = width / 2
+cy = height / 2
 
 x = np.arange(0, width, 1, dtype='float32')
 y = np.arange(0, height, 1, dtype='float32')
 
-# map_x = cx + np.arctan((x - cx) / (2 * f)) * 2 / np.pi / 2 * 8000
-# map_y = cy + np.arctan((y - cy) / (2 * f)) * 2 / np.pi * 4000
+map_x = cx + np.arctan((x - cx) / (2 * fx)) * 2 / np.pi * 4000
+map_y = cy + np.arctan((y - cy) / (2 * fy)) * 2 / np.pi * 4000
 
-map_x = cx + (x - cx) / (fx) / np.pi / 2 * 8000
-map_y = cy + (y - cy) / (fy) * 2 / np.pi * 4000
 
 map_x = np.concatenate([map_x.reshape(1, -1)] * height, axis=0)
 map_y = np.concatenate([map_y.reshape(1, -1)] * width, axis=0).T
