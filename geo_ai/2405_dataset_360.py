@@ -18,9 +18,9 @@ from cvml.dataset.image_transforming import convert_to_mixed
 
 
 def main():
-    save_dir = r'C:\Users\HP\Downloads\geoai_360_24052023' # '/home/student2/datasets/prepared/geoai_360_24052023'
+    save_dir = '/home/student2/Downloads/geoai_360_24052023' # '/home/student2/datasets/prepared/geoai_360_24052023'
     #raw_datasets_dir = '/home/student2/datasets/raw'
-    raw_dirs = [r'C:\Users\HP\Downloads\360_1-10img']
+    raw_dirs = ['/home/student2/Downloads/360_1-10img']
 
     create_compressed_samples = True
 
@@ -68,12 +68,13 @@ def main():
 
     final_dataset.split_by_proportions(split_proportions)
     final_dataset.install(
-        save_dir, 
+        save_dir,
         image_ext='.png',
         install_images=True, 
         install_labels=True, 
         install_annotations=True, 
-        install_description=True
+        install_description=True,
+        with_segmentation=True,
     )
     
     if create_compressed_samples:
