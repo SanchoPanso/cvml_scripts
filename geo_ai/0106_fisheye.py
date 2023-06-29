@@ -3,8 +3,9 @@ import os
 import cv2
 import numpy as np
 
-img_dir = r'C:\Users\HP\Downloads\360_5'
-save_dir = r'C:\Users\HP\Downloads\360_5_separated_0606'
+img_dir = r'D:\geo_ai_data\pano\5'
+save_dir = r'D:\geo_ai_data\shots\5'
+
 os.makedirs(save_dir, exist_ok=True)
 
 for filename in os.listdir(img_dir):
